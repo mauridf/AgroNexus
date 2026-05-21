@@ -2,7 +2,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AgroNexus.Domain\AgroNexus.Domain.csproj" />
-    <ProjectReference Include="..\AgroNexus.Application\AgroNexus.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>
