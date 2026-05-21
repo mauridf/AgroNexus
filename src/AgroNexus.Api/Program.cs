@@ -173,6 +173,11 @@ builder.Services.AddScoped<IProductionSaleRepository, ProductionSaleRepository>(
 // Serviços de Aplicação
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IFarmManagementService, FarmManagementService>();
+builder.Services.AddScoped<IAgricultureService, AgricultureService>();
+builder.Services.AddScoped<IInventoryService, InventoryService>();
+builder.Services.AddScoped<IOperationsService, OperationsService>();
+builder.Services.AddScoped<IMonitoringService, MonitoringService>();
+builder.Services.AddScoped<IFinancialService, FinancialService>();
 
 // ============================================
 // 7.5 MAPEAMENTOS E VALIDADORES
@@ -272,6 +277,11 @@ app.MapAuthEndpoints();     // Registro e Login
 app.MapUserEndpoints();     // Gestão de Usuários (Admin)
 app.MapProducerEndpoints(); // CRUD de Produtores
 app.MapFarmEndpoints();     // CRUD de Fazendas
+app.MapAgricultureEndpoints(); // CRUD de Culturas e Plantios   
+app.MapInventoryEndpoints(); // CRUD de Insumos e Estoques
+app.MapOperationsEndpoints(); // CRUD de Contratos e Custos Operacionais
+app.MapMonitoringEndpoints(); // CRUD de Alertas, Certificados e Clima
+app.MapFinancialEndpoints(); // CRUD de Vendas e Relatórios Financeiros
 
 // ============================================
 // 13. START 🚀
