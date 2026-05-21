@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AgroNexus.Api/AgroNexus.Api.csproj" />
+    <Project Path="src/AgroNexus.Application/AgroNexus.Application.csproj" />
+    <Project Path="src/AgroNexus.CrossCutting/AgroNexus.CrossCutting.csproj" />
+    <Project Path="src/AgroNexus.Domain/AgroNexus.Domain.csproj" />
+    <Project Path="src/AgroNexus.Infrastructure/AgroNexus.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AgroNexus.IntegrationTests/AgroNexus.IntegrationTests.csproj" />
+    <Project Path="tests/AgroNexus.UnitTests/AgroNexus.UnitTests.csproj" />
+  </Folder>
+</Solution>
