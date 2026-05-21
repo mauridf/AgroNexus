@@ -29,9 +29,7 @@ public sealed class DbUpMigrationRunner
     {
         _logger.LogInformation("Iniciando execução de migrações DbUp...");
 
-        // Localiza o diretório dos scripts de migração
         var scriptsPath = FindScriptsPath();
-
         _logger.LogInformation("Procurando scripts em: {ScriptsPath}", scriptsPath);
 
         if (!Directory.Exists(scriptsPath))
@@ -40,7 +38,6 @@ public sealed class DbUpMigrationRunner
             throw new DirectoryNotFoundException($"Diretório de scripts não encontrado: {scriptsPath}");
         }
 
-        // Lista os scripts encontrados
         var scriptFiles = Directory.GetFiles(scriptsPath, "*.sql").OrderBy(f => f);
         _logger.LogInformation("{Count} arquivo(s) SQL encontrado(s)", scriptFiles.Count());
         foreach (var file in scriptFiles)
@@ -48,8 +45,7 @@ public sealed class DbUpMigrationRunner
             _logger.LogInformation("  - {FileName}", Path.GetFileName(file));
         }
 
-        // Configura o DbUp
-        // DESABILITA a substituição de variáveis para evitar conflitos com $2a$ do BCrypt
+        // Configura o DbUp sem substituição de variáveis
         var upgrader = DeployChanges.To
             .PostgresqlDatabase(_connectionString)
             .WithScriptsFromFileSystem(scriptsPath)
@@ -57,14 +53,11 @@ public sealed class DbUpMigrationRunner
             .LogToNowhere()
             .LogTo(new DbUpLogger(_logger))
             .JournalToPostgresqlTable("public", "schema_versions")
-            .WithVariablesDisabled() // ← ISTO resolve o erro!
             .Build();
 
-        // Garante que o banco existe (cria se necessário)
         EnsureDatabase.For.PostgresqlDatabase(_connectionString);
         _logger.LogInformation("Banco de dados verificado/garantido");
 
-        // Obtém scripts que serão executados
         var scriptsToExecute = upgrader.GetScriptsToExecute();
         _logger.LogInformation("{Count} script(s) pendente(s) para execução", scriptsToExecute.Count);
 
@@ -73,13 +66,11 @@ public sealed class DbUpMigrationRunner
             _logger.LogInformation("Script pendente: {ScriptName}", script.Name);
         }
 
-        // Executa as migrações
         var result = upgrader.PerformUpgrade();
 
         if (result.Successful)
         {
-            _logger.LogInformation("Migrações executadas com sucesso! Scripts executados: {Count}",
-                result.Scripts.Count(s => s.SqlScriptOptions != null));
+            _logger.LogInformation("Migrações executadas com sucesso!");
         }
         else
         {
