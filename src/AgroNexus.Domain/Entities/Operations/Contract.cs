@@ -74,9 +74,9 @@ public sealed class Contract : BaseEntity
     }
 
     /// <summary>
-    /// Verifica se o contrato está ativo (dentro do período de vigência).
+    /// Verifica se o contrato está em vigor (dentro do período de vigência).
     /// </summary>
-    public bool IsActive()
+    public bool InEffect()
     {
         var now = DateTime.UtcNow;
         return now >= DataInicio && (!DataFim.HasValue || now <= DataFim.Value);

@@ -7,6 +7,7 @@ using AgroNexus.Domain.Entities.Inventory;
 using AgroNexus.Domain.Entities.Monitoring;
 using AgroNexus.Domain.Entities.Operations;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 
 namespace AgroNexus.Infrastructure.Data;
 
@@ -56,6 +57,9 @@ public sealed class AgroNexusDbContext : DbContext
         // Como usamos DbUp para criar as tabelas, o EF Core não gerencia o schema.
         // Mas ainda configuramos o mapeamento para que as queries funcionem corretamente.
 
+        // Helper para criar filtro de soft delete
+        Expression<Func<BaseEntity, bool>> softDeleteFilter = e => e.IsActive;
+
         // Identity schema
         modelBuilder.Entity<User>(entity =>
         {
@@ -66,10 +70,7 @@ public sealed class AgroNexusDbContext : DbContext
             entity.Property(e => e.Role).IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired();
             entity.Property(e => e.IsActive).IsRequired();
-
-            // Filtro global para soft delete
             entity.HasQueryFilter(e => e.IsActive);
-
             entity.HasIndex(e => e.Email).IsUnique().HasFilter("is_active = TRUE");
         });
 
@@ -82,6 +83,7 @@ public sealed class AgroNexusDbContext : DbContext
             entity.Property(e => e.CpfCnpj).HasMaxLength(14).IsRequired();
             entity.Property(e => e.Estado).HasMaxLength(2);
             entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired();
             entity.HasQueryFilter(e => e.IsActive);
             entity.HasIndex(e => e.CpfCnpj).IsUnique().HasFilter("is_active = TRUE");
         });
@@ -99,6 +101,7 @@ public sealed class AgroNexusDbContext : DbContext
             entity.Property(e => e.Longitude).HasPrecision(9, 6);
             entity.Property(e => e.Estado).HasMaxLength(2);
             entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired();
             entity.HasQueryFilter(e => e.IsActive);
         });
 
@@ -110,6 +113,7 @@ public sealed class AgroNexusDbContext : DbContext
             entity.Property(e => e.Cpf).HasMaxLength(11);
             entity.Property(e => e.Salario).HasPrecision(12, 2);
             entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired();
             entity.HasQueryFilter(e => e.IsActive);
         });
 
@@ -120,6 +124,7 @@ public sealed class AgroNexusDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).HasMaxLength(100).IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired();
             entity.HasQueryFilter(e => e.IsActive);
             entity.HasIndex(e => e.Name).IsUnique().HasFilter("is_active = TRUE");
         });
@@ -133,6 +138,7 @@ public sealed class AgroNexusDbContext : DbContext
             entity.Property(e => e.CustoTotal).HasPrecision(15, 2);
             entity.Property(e => e.ReceitaTotal).HasPrecision(15, 2);
             entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired();
             entity.HasQueryFilter(e => e.IsActive);
         });
 
@@ -143,6 +149,7 @@ public sealed class AgroNexusDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).HasMaxLength(150).IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired();
             entity.HasQueryFilter(e => e.IsActive);
             entity.HasIndex(e => e.Name).IsUnique().HasFilter("is_active = TRUE");
         });
@@ -155,6 +162,7 @@ public sealed class AgroNexusDbContext : DbContext
             entity.Property(e => e.ValorTotal).HasPrecision(15, 2).IsRequired();
             entity.Property(e => e.DataCompra).IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired();
             entity.HasQueryFilter(e => e.IsActive);
         });
 
@@ -164,6 +172,7 @@ public sealed class AgroNexusDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Quantidade).HasPrecision(12, 4).IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired();
             entity.HasQueryFilter(e => e.IsActive);
         });
 
@@ -176,6 +185,7 @@ public sealed class AgroNexusDbContext : DbContext
             entity.Property(e => e.Valor).HasPrecision(15, 2).IsRequired();
             entity.Property(e => e.DataInicio).IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired();
             entity.HasQueryFilter(e => e.IsActive);
         });
 
@@ -187,6 +197,7 @@ public sealed class AgroNexusDbContext : DbContext
             entity.Property(e => e.Valor).HasPrecision(15, 2).IsRequired();
             entity.Property(e => e.Data).IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired();
             entity.HasQueryFilter(e => e.IsActive);
         });
 
@@ -197,6 +208,7 @@ public sealed class AgroNexusDbContext : DbContext
             entity.Property(e => e.Descricao).HasMaxLength(255).IsRequired();
             entity.Property(e => e.ValorAproximado).HasPrecision(15, 2);
             entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired();
             entity.HasQueryFilter(e => e.IsActive);
         });
 
@@ -209,6 +221,7 @@ public sealed class AgroNexusDbContext : DbContext
             entity.Property(e => e.Nivel).HasMaxLength(10).IsRequired();
             entity.Property(e => e.Data).IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired();
             entity.HasQueryFilter(e => e.IsActive);
         });
 
@@ -220,6 +233,7 @@ public sealed class AgroNexusDbContext : DbContext
             entity.Property(e => e.DataEmissao).IsRequired();
             entity.Property(e => e.DataValidade).IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired();
             entity.HasQueryFilter(e => e.IsActive);
         });
 
@@ -232,6 +246,7 @@ public sealed class AgroNexusDbContext : DbContext
             entity.Property(e => e.ChuvaMm).HasPrecision(8, 2);
             entity.Property(e => e.Umidade).HasPrecision(5, 2);
             entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired();
             entity.HasQueryFilter(e => e.IsActive);
         });
 
@@ -244,9 +259,10 @@ public sealed class AgroNexusDbContext : DbContext
             entity.Property(e => e.PrecoUnitario).HasPrecision(15, 2).IsRequired();
             entity.Property(e => e.DataVenda).IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.IsActive).IsRequired();
             entity.HasQueryFilter(e => e.IsActive);
 
-            // Valor total é calculado, não armazenado
+            // Valor total é calculado, não armazenado no banco
             entity.Ignore(e => e.ValorTotal);
         });
 

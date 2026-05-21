@@ -5,6 +5,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="FluentValidation" Version="11.11.0" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
     <PackageReference Include="Mapster" Version="7.4.0" />
@@ -12,11 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="DTOs\Requests\" />
-    <Folder Include="DTOs\Responses\" />
-    <Folder Include="Interfaces\Services\" />
     <Folder Include="Mappings\" />
-    <Folder Include="Services\" />
   </ItemGroup>
 
   <PropertyGroup>

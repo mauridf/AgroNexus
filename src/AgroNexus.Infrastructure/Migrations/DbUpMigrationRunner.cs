@@ -1,6 +1,6 @@
-﻿using System.Reflection;
-using DbUp;
+﻿using DbUp;
 using DbUp.Engine;
+using DbUp.Engine.Output;
 using Microsoft.Extensions.Logging;
 
 namespace AgroNexus.Infrastructure.Migrations;
@@ -30,31 +30,7 @@ public sealed class DbUpMigrationRunner
         _logger.LogInformation("Iniciando execução de migrações DbUp...");
 
         // Localiza o diretório dos scripts de migração
-        // Em desenvolvimento: caminho relativo ao diretório do projeto
-        // Em produção: os scripts são copiados para o diretório de saída
-        var scriptsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Migrations", "Scripts");
-
-        // Se não encontrar no base directory, tenta caminho relativo (desenvolvimento)
-        if (!Directory.Exists(scriptsPath))
-        {
-            scriptsPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "..", "scripts", "migrations");
-
-            // Fallback: tenta a partir do diretório da solution
-            if (!Directory.Exists(scriptsPath))
-            {
-                // Procura recursivamente pela pasta scripts/migrations
-                var currentDir = Directory.GetCurrentDirectory();
-                while (currentDir != null && !Directory.Exists(Path.Combine(currentDir, "scripts", "migrations")))
-                {
-                    currentDir = Directory.GetParent(currentDir)?.FullName;
-                }
-
-                if (currentDir != null)
-                {
-                    scriptsPath = Path.Combine(currentDir, "scripts", "migrations");
-                }
-            }
-        }
+        var scriptsPath = FindScriptsPath();
 
         _logger.LogInformation("Procurando scripts em: {ScriptsPath}", scriptsPath);
 
@@ -64,17 +40,26 @@ public sealed class DbUpMigrationRunner
             throw new DirectoryNotFoundException($"Diretório de scripts não encontrado: {scriptsPath}");
         }
 
+        // Lista os scripts encontrados
+        var scriptFiles = Directory.GetFiles(scriptsPath, "*.sql").OrderBy(f => f);
+        _logger.LogInformation("{Count} arquivo(s) SQL encontrado(s)", scriptFiles.Count());
+        foreach (var file in scriptFiles)
+        {
+            _logger.LogInformation("  - {FileName}", Path.GetFileName(file));
+        }
+
         // Configura o DbUp
         var upgrader = DeployChanges.To
             .PostgresqlDatabase(_connectionString)
             .WithScriptsFromFileSystem(scriptsPath)
-            .WithTransactionPerScript() // Cada script em sua própria transação
-            .LogToConsole()
+            .WithTransactionPerScript()
+            .LogToNowhere() // Não usamos console, nosso logger customizado cuida disso
             .LogTo(new DbUpLogger(_logger))
             .Build();
 
         // Garante que o banco existe (cria se necessário)
         EnsureDatabase.For.PostgresqlDatabase(_connectionString);
+        _logger.LogInformation("Banco de dados verificado/garantido");
 
         // Obtém scripts que serão executados
         var scriptsToExecute = upgrader.GetScriptsToExecute();
@@ -90,21 +75,53 @@ public sealed class DbUpMigrationRunner
 
         if (result.Successful)
         {
-            _logger.LogInformation("Migrações executadas com sucesso!");
+            _logger.LogInformation("Migrações executadas com sucesso! Scripts executados: {Count}",
+                result.Scripts.Count(s => s.SqlScriptOptions != null));
         }
         else
         {
-            _logger.LogError(result.Error, "Erro ao executar migrações");
+            _logger.LogError(result.Error, "Erro ao executar migrações: {ErrorMessage}", result.Error?.Message);
         }
 
         return result;
     }
+
+    /// <summary>
+    /// Localiza o diretório de scripts de migração em diferentes ambientes.
+    /// </summary>
+    private static string FindScriptsPath()
+    {
+        // 1. Tenta no diretório base da aplicação (produção)
+        var basePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Migrations", "Scripts");
+        if (Directory.Exists(basePath))
+            return basePath;
+
+        // 2. Tenta caminho relativo a partir do diretório atual (desenvolvimento - rodando da API)
+        var devPath1 = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "..", "scripts", "migrations");
+        if (Directory.Exists(devPath1))
+            return devPath1;
+
+        // 3. Procura recursivamente pela pasta scripts/migrations a partir do diretório atual
+        var currentDir = Directory.GetCurrentDirectory();
+        while (currentDir != null)
+        {
+            var candidatePath = Path.Combine(currentDir, "scripts", "migrations");
+            if (Directory.Exists(candidatePath))
+                return candidatePath;
+
+            currentDir = Directory.GetParent(currentDir)?.FullName;
+        }
+
+        // 4. Último fallback: retorna o caminho base (vai falhar com erro descritivo)
+        return basePath;
+    }
 }
 
 /// <summary>
-/// Adaptador para integrar o logging do DbUp com o Serilog/ILogger do .NET.
+/// Adaptador para integrar o logging do DbUp com o ILogger do .NET.
+/// Implementa a interface IUpgradeLog do DbUp 5.x.
 /// </summary>
-internal sealed class DbUpLogger : DbUp.Engine.Output.IUpgradeLog
+internal sealed class DbUpLogger : IUpgradeLog
 {
     private readonly ILogger _logger;
 
@@ -113,18 +130,39 @@ internal sealed class DbUpLogger : DbUp.Engine.Output.IUpgradeLog
         _logger = logger;
     }
 
-    public void WriteInformation(string format, params object[] args)
+    public void LogTrace(string format, params object[] args)
+    {
+        // Trace é muito verboso, redirecionamos para Debug
+        _logger.LogDebug(format, args);
+    }
+
+    public void LogDebug(string format, params object[] args)
+    {
+        _logger.LogDebug(format, args);
+    }
+
+    public void LogInformation(string format, params object[] args)
     {
         _logger.LogInformation(format, args);
     }
 
-    public void WriteError(string format, params object[] args)
+    public void LogWarning(string format, params object[] args)
+    {
+        _logger.LogWarning(format, args);
+    }
+
+    public void LogError(string format, params object[] args)
     {
         _logger.LogError(format, args);
     }
 
-    public void WriteWarning(string format, params object[] args)
+    public void LogError(Exception ex, string format, params object[] args)
     {
-        _logger.LogWarning(format, args);
+        _logger.LogError(ex, format, args);
     }
+
+    // Mantendo compatibilidade com chamadas antigas
+    public void WriteInformation(string format, params object[] args) => LogInformation(format, args);
+    public void WriteError(string format, params object[] args) => LogError(format, args);
+    public void WriteWarning(string format, params object[] args) => LogWarning(format, args);
 }

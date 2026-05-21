@@ -92,7 +92,7 @@ public sealed class Employee : BaseEntity
     /// <summary>
     /// Verifica se o funcionário está ativo (não demitido).
     /// </summary>
-    public bool IsActive2() => !DataDemissao.HasValue;
+    public bool IsEmployed() => !DataDemissao.HasValue;
 
     public void Update(
         string name,
