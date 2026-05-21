@@ -1,10 +1,11 @@
+using AgroNexus.Api.Endpoints;
 using AgroNexus.Api.Middlewares;
-using AgroNexus.Application.DTOs.Requests;
-using AgroNexus.Application.DTOs.Responses;
-using AgroNexus.Application.Interfaces.Services;
-using AgroNexus.Application.Services;
-using AgroNexus.Domain.Interfaces.Repositories;
 using AgroNexus.Application.Auth;
+using AgroNexus.Application.Interfaces.Services;
+using AgroNexus.Application.Mappings;
+using AgroNexus.Application.Services;
+using AgroNexus.CrossCutting.Extensions;
+using AgroNexus.Domain.Interfaces.Repositories;
 using AgroNexus.Infrastructure.Data;
 using AgroNexus.Infrastructure.Migrations;
 using AgroNexus.Infrastructure.Repositories;
@@ -147,6 +148,8 @@ builder.Services.AddRateLimiter(options =>
 // ============================================
 // 7. INJEÇÃO DE DEPENDÊNCIA
 // ============================================
+
+// Auth
 builder.Services.AddSingleton<JwtTokenService>();
 
 // Repositórios
@@ -172,7 +175,13 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IFarmManagementService, FarmManagementService>();
 
 // ============================================
-// 8. OPEN API + SCALAR (compatível .NET 10)
+// 7.5 MAPEAMENTOS E VALIDADORES
+// ============================================
+MappingConfig.Configure();        // Mapster
+builder.Services.AddValidators(); // FluentValidation
+
+// ============================================
+// 8. OPEN API + SCALAR
 // ============================================
 builder.Services.AddOpenApi();
 
@@ -214,7 +223,7 @@ using (var scope = app.Services.CreateScope())
 // 11. MIDDLEWARES PIPELINE (Ordem correta!)
 // ============================================
 
-// 1. Tratamento global de exceções (DEVE ser o primeiro!)
+// 1. Tratamento global de exceções
 app.UseGlobalExceptionHandler();
 
 // 2. Logging de requisições
@@ -240,7 +249,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // ============================================
-// 12. ENDPOINTS
+// 12. ENDPOINTS (Modulares + Organizados)
 // ============================================
 
 // Health Check
@@ -248,182 +257,23 @@ app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", Timestamp = Dat
    .WithTags("Health")
    .AllowAnonymous();
 
-// OpenAPI + Scalar
+// OpenAPI + Scalar Docs
 app.MapOpenApi();
 app.MapScalarApiReference(options =>
 {
     options
-        .WithTitle("AgroNexus API")
+        .WithTitle("AgroNexus API - Gestão Agrícola")
         .WithTheme(ScalarTheme.DeepSpace)
         .WithDarkModeToggle(true);
 });
 
-// ============================================
-// Auth Endpoints
-// ============================================
-var authGroup = app.MapGroup("/api/v1/auth")
-    .WithTags("Auth")
-    .AllowAnonymous();
-
-authGroup.MapPost("/register", async (
-    CreateUserRequest request,
-    IUserService userService,
-    CancellationToken ct) =>
-{
-    var result = await userService.CreateUserAsync(request, ct);
-    return Results.Created($"/api/v1/users/{result.Id}", result);
-})
-.Produces<UserResponse>(StatusCodes.Status201Created)
-.Produces<ErrorResponse>(StatusCodes.Status400BadRequest);
-
-authGroup.MapPost("/login", async (
-    LoginRequest request,
-    IUserService userService,
-    CancellationToken ct) =>
-{
-    var result = await userService.LoginAsync(request, ct);
-    return Results.Ok(result);
-})
-.Produces<LoginResponse>(StatusCodes.Status200OK)
-.Produces<ErrorResponse>(StatusCodes.Status400BadRequest);
+// Endpoints de Negócio (Arquivos Modulares)
+app.MapAuthEndpoints();     // Registro e Login
+app.MapUserEndpoints();     // Gestão de Usuários (Admin)
+app.MapProducerEndpoints(); // CRUD de Produtores
+app.MapFarmEndpoints();     // CRUD de Fazendas
 
 // ============================================
-// Users Endpoints (Admin only)
-// ============================================
-var usersGroup = app.MapGroup("/api/v1/users")
-    .WithTags("Users")
-    .RequireAuthorization("AdminOnly");
-
-usersGroup.MapGet("/", async (IUserService userService, CancellationToken ct) =>
-    Results.Ok(await userService.GetAllAsync(ct)))
-    .Produces<IEnumerable<UserResponse>>();
-
-usersGroup.MapGet("/{id:guid}", async (Guid id, IUserService userService, CancellationToken ct) =>
-{
-    var user = await userService.GetByIdAsync(id, ct);
-    return Results.Ok(user);
-})
-.Produces<UserResponse>()
-.Produces<ErrorResponse>(StatusCodes.Status404NotFound);
-
-usersGroup.MapDelete("/{id:guid}", async (Guid id, IUserService userService, CancellationToken ct) =>
-{
-    await userService.SoftDeleteAsync(id, ct);
-    return Results.NoContent();
-})
-.Produces(StatusCodes.Status204NoContent);
-
-// ============================================
-// Producers Endpoints
-// ============================================
-var producersGroup = app.MapGroup("/api/v1/producers")
-    .WithTags("Producers")
-    .RequireAuthorization();
-
-producersGroup.MapPost("/", async (
-    CreateProducerRequest request,
-    IFarmManagementService service,
-    CancellationToken ct) =>
-{
-    var result = await service.CreateProducerAsync(request, ct);
-    return Results.Created($"/api/v1/producers/{result.Id}", result);
-})
-.Produces<ProducerResponse>(StatusCodes.Status201Created)
-.Produces<ErrorResponse>(StatusCodes.Status400BadRequest);
-
-producersGroup.MapGet("/{id:guid}", async (
-    Guid id,
-    IFarmManagementService service,
-    CancellationToken ct) =>
-{
-    var result = await service.GetProducerByIdAsync(id, ct);
-    return Results.Ok(result);
-})
-.Produces<ProducerResponse>()
-.Produces<ErrorResponse>(StatusCodes.Status404NotFound);
-
-producersGroup.MapPut("/{id:guid}", async (
-    Guid id,
-    UpdateProducerRequest request,
-    IFarmManagementService service,
-    CancellationToken ct) =>
-{
-    var result = await service.UpdateProducerAsync(id, request, ct);
-    return Results.Ok(result);
-})
-.Produces<ProducerResponse>()
-.Produces<ErrorResponse>(StatusCodes.Status400BadRequest);
-
-producersGroup.MapDelete("/{id:guid}", async (
-    Guid id,
-    IFarmManagementService service,
-    CancellationToken ct) =>
-{
-    await service.SoftDeleteProducerAsync(id, ct);
-    return Results.NoContent();
-});
-
-// ============================================
-// Farms Endpoints
-// ============================================
-var farmsGroup = app.MapGroup("/api/v1/farms")
-    .WithTags("Farms")
-    .RequireAuthorization();
-
-farmsGroup.MapPost("/", async (
-    CreateFarmRequest request,
-    IFarmManagementService service,
-    CancellationToken ct) =>
-{
-    var result = await service.CreateFarmAsync(request, ct);
-    return Results.Created($"/api/v1/farms/{result.Id}", result);
-})
-.Produces<FarmResponse>(StatusCodes.Status201Created)
-.Produces<ErrorResponse>(StatusCodes.Status400BadRequest);
-
-farmsGroup.MapGet("/{id:guid}", async (
-    Guid id,
-    IFarmManagementService service,
-    CancellationToken ct) =>
-{
-    var result = await service.GetFarmByIdAsync(id, ct);
-    return Results.Ok(result);
-})
-.Produces<FarmResponse>()
-.Produces<ErrorResponse>(StatusCodes.Status404NotFound);
-
-farmsGroup.MapGet("/producer/{producerId:guid}", async (
-    Guid producerId,
-    IFarmManagementService service,
-    CancellationToken ct) =>
-{
-    var result = await service.GetFarmsByProducerAsync(producerId, ct);
-    return Results.Ok(result);
-})
-.Produces<IEnumerable<FarmResponse>>();
-
-farmsGroup.MapPut("/{id:guid}", async (
-    Guid id,
-    UpdateFarmRequest request,
-    IFarmManagementService service,
-    CancellationToken ct) =>
-{
-    var result = await service.UpdateFarmAsync(id, request, ct);
-    return Results.Ok(result);
-})
-.Produces<FarmResponse>()
-.Produces<ErrorResponse>(StatusCodes.Status400BadRequest);
-
-farmsGroup.MapDelete("/{id:guid}", async (
-    Guid id,
-    IFarmManagementService service,
-    CancellationToken ct) =>
-{
-    await service.SoftDeleteFarmAsync(id, ct);
-    return Results.NoContent();
-});
-
-// ============================================
-// 13. START
+// 13. START 🚀
 // ============================================
 app.Run();

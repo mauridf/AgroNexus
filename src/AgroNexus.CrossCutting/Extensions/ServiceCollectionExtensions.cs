@@ -1,5 +1,4 @@
-﻿using AgroNexus.CrossCutting.Validators;
-using FluentValidation;
+﻿using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgroNexus.CrossCutting.Extensions;
@@ -10,12 +9,12 @@ namespace AgroNexus.CrossCutting.Extensions;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registra todos os validadores do FluentValidation.
+    /// Registra todos os validadores do FluentValidation no assembly do CrossCutting.
     /// </summary>
     public static IServiceCollection AddValidators(this IServiceCollection services)
     {
-        services.AddValidatorsFromAssemblyContaining<CreateUserRequestValidator>();
-        services.AddValidatorsFromAssemblyContaining<CreateFarmRequestValidator>();
+        // Escaneia o assembly atual e registra todos os AbstractValidator<T>
+        services.AddValidatorsFromAssembly(typeof(ServiceCollectionExtensions).Assembly);
 
         return services;
     }
