@@ -7,11 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Entities\Agriculture\" />
-    <Folder Include="Entities\Financial\" />
-    <Folder Include="Entities\Inventory\" />
-    <Folder Include="Entities\Monitoring\" />
-    <Folder Include="Entities\Operations\" />
     <Folder Include="Interfaces\Repositories\" />
     <Folder Include="ValueObjects\" />
   </ItemGroup>
