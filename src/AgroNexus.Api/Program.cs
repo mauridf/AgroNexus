@@ -1,3 +1,4 @@
+using AgroNexus.Api.Middlewares;
 using AgroNexus.Application.DTOs.Requests;
 using AgroNexus.Application.DTOs.Responses;
 using AgroNexus.Application.Interfaces.Services;
@@ -26,6 +27,7 @@ builder.Host.UseSerilog((context, config) =>
     config.ReadFrom.Configuration(context.Configuration)
           .Enrich.FromLogContext()
           .Enrich.WithEnvironmentName()
+          .Enrich.WithMachineName()
           .WriteTo.Console(outputTemplate:
               "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}");
 });
@@ -209,23 +211,31 @@ using (var scope = app.Services.CreateScope())
 }
 
 // ============================================
-// 11. MIDDLEWARES PIPELINE
+// 11. MIDDLEWARES PIPELINE (Ordem correta!)
 // ============================================
-if (app.Environment.IsDevelopment())
-{
-    // HttpLogging não está mais disponível como middleware automático
-}
 
+// 1. Tratamento global de exceções (DEVE ser o primeiro!)
+app.UseGlobalExceptionHandler();
+
+// 2. Logging de requisições
+app.UseRequestLogging();
+
+// 3. Serilog request logging
 app.UseSerilogRequestLogging();
-app.UseExceptionHandler("/error");
 
+// 4. HTTPS (em produção)
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
 
+// 5. CORS
 app.UseCors(app.Environment.IsDevelopment() ? "DevelopmentPolicy" : "ProductionPolicy");
+
+// 6. Rate Limiting
 app.UseRateLimiter();
+
+// 7. Autenticação & Autorização
 app.UseAuthentication();
 app.UseAuthorization();
 
