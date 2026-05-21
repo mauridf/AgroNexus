@@ -14,6 +14,7 @@ using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using Serilog;
 using System.Text;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,14 +25,13 @@ builder.Host.UseSerilog((context, config) =>
 {
     config.ReadFrom.Configuration(context.Configuration)
           .Enrich.FromLogContext()
-          .Enrich.WithMachineName()
           .Enrich.WithEnvironmentName()
           .WriteTo.Console(outputTemplate:
               "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}");
 });
 
 // ============================================
-// 2. CONFIGURAÇÕES FORTES (Options Pattern)
+// 2. CONFIGURAÇÕES (Options Pattern)
 // ============================================
 builder.Services.Configure<JwtTokenSettings>(
     builder.Configuration.GetSection("Jwt"));
@@ -52,7 +52,7 @@ builder.Services.AddDbContext<AgroNexusDbContext>(options =>
             errorCodesToAdd: null);
         npgsqlOptions.CommandTimeout(30);
     });
-    // Não habilitar logging detalhado em produção
+
     if (builder.Environment.IsDevelopment())
     {
         options.EnableSensitiveDataLogging();
@@ -66,11 +66,10 @@ builder.Services.AddDbContext<AgroNexusDbContext>(options =>
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtTokenSettings>()
     ?? throw new InvalidOperationException("Configurações JWT não encontradas!");
 
-// Validações de segurança
 if (string.IsNullOrWhiteSpace(jwtSettings.SecretKey))
     throw new InvalidOperationException("JWT SecretKey não configurada!");
 
-if (Encoding.UTF8.GetBytes(jwtSettings.SecretKey).Length < 64) // 512 bits = 64 bytes
+if (Encoding.UTF8.GetBytes(jwtSettings.SecretKey).Length < 64)
     throw new InvalidOperationException("JWT SecretKey deve ter pelo menos 512 bits (64 caracteres)!");
 
 builder.Services.AddAuthentication(options =>
@@ -90,7 +89,7 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidAudience = jwtSettings.Audience,
         ValidateLifetime = true,
-        ClockSkew = TimeSpan.Zero // Sem tolerância
+        ClockSkew = TimeSpan.Zero
     };
 });
 
@@ -138,7 +137,7 @@ builder.Services.AddRateLimiter(options =>
         config.PermitLimit = builder.Configuration.GetValue<int>("RateLimiting:PermitLimit", 100);
         config.Window = TimeSpan.FromSeconds(
             builder.Configuration.GetValue<int>("RateLimiting:WindowInSeconds", 60));
-        config.QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst;
+        config.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
         config.QueueLimit = 0;
     });
 });
@@ -146,8 +145,6 @@ builder.Services.AddRateLimiter(options =>
 // ============================================
 // 7. INJEÇÃO DE DEPENDÊNCIA
 // ============================================
-
-// Serviços de Infraestrutura
 builder.Services.AddSingleton<JwtTokenService>();
 
 // Repositórios
@@ -173,29 +170,12 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IFarmManagementService, FarmManagementService>();
 
 // ============================================
-// 8. OPEN API + SCALAR
+// 8. OPEN API + SCALAR (compatível .NET 10)
 // ============================================
-builder.Services.AddOpenApi(options =>
-{
-    options.AddDocumentTransformer((document, context, cancellationToken) =>
-    {
-        document.Info = new Microsoft.OpenApi.Models.OpenApiInfo
-        {
-            Title = "AgroNexus API",
-            Version = "v1",
-            Description = "Sistema de Gestão para Produtor Rural - API REST",
-            Contact = new Microsoft.OpenApi.Models.OpenApiContact
-            {
-                Name = "AgroNexus",
-                Email = "contato@agronexus.com"
-            }
-        };
-        return Task.CompletedTask;
-    });
-});
+builder.Services.AddOpenApi();
 
 // ============================================
-// 9. BUILD DA APLICAÇÃO
+// 9. BUILD
 // ============================================
 var app = builder.Build();
 
@@ -231,37 +211,26 @@ using (var scope = app.Services.CreateScope())
 // ============================================
 // 11. MIDDLEWARES PIPELINE
 // ============================================
-
-// Logging HTTP (apenas desenvolvimento)
 if (app.Environment.IsDevelopment())
 {
-    app.UseHttpLogging();
+    // HttpLogging não está mais disponível como middleware automático
 }
 
-// Serilog request logging
 app.UseSerilogRequestLogging();
-
-// Exception handling
 app.UseExceptionHandler("/error");
 
-// HTTPS (em produção)
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
 
-// CORS
 app.UseCors(app.Environment.IsDevelopment() ? "DevelopmentPolicy" : "ProductionPolicy");
-
-// Rate Limiting
 app.UseRateLimiter();
-
-// Autenticação & Autorização
 app.UseAuthentication();
 app.UseAuthorization();
 
 // ============================================
-// 12. ENDPOINTS (Minimal API)
+// 12. ENDPOINTS
 // ============================================
 
 // Health Check
@@ -269,19 +238,24 @@ app.MapGet("/health", () => Results.Ok(new { Status = "Healthy", Timestamp = Dat
    .WithTags("Health")
    .AllowAnonymous();
 
-// Scalar API Docs
+// OpenAPI + Scalar
 app.MapOpenApi();
 app.MapScalarApiReference(options =>
 {
-    options.Title = "AgroNexus API";
-    options.Theme = ScalarTheme.DeepSpace;
-    options.DefaultHttpClient = new(ScalarTarget.CSharp, ScalarClient.HttpClient);
-    options.ShowDownloadButton = true;
-    options.HideClientButton = false;
+    options
+        .WithTitle("AgroNexus API")
+        .WithTheme(ScalarTheme.DeepSpace)
+        .WithDarkModeToggle(true);
 });
 
-// Endpoints de Autenticação
-app.MapPost("/api/v1/auth/register", async (
+// ============================================
+// Auth Endpoints
+// ============================================
+var authGroup = app.MapGroup("/api/v1/auth")
+    .WithTags("Auth")
+    .AllowAnonymous();
+
+authGroup.MapPost("/register", async (
     CreateUserRequest request,
     IUserService userService,
     CancellationToken ct) =>
@@ -289,12 +263,10 @@ app.MapPost("/api/v1/auth/register", async (
     var result = await userService.CreateUserAsync(request, ct);
     return Results.Created($"/api/v1/users/{result.Id}", result);
 })
-.WithTags("Auth")
 .Produces<UserResponse>(StatusCodes.Status201Created)
-.Produces<ErrorResponse>(StatusCodes.Status400BadRequest)
-.AllowAnonymous();
+.Produces<ErrorResponse>(StatusCodes.Status400BadRequest);
 
-app.MapPost("/api/v1/auth/login", async (
+authGroup.MapPost("/login", async (
     LoginRequest request,
     IUserService userService,
     CancellationToken ct) =>
@@ -302,12 +274,12 @@ app.MapPost("/api/v1/auth/login", async (
     var result = await userService.LoginAsync(request, ct);
     return Results.Ok(result);
 })
-.WithTags("Auth")
 .Produces<LoginResponse>(StatusCodes.Status200OK)
-.Produces<ErrorResponse>(StatusCodes.Status400BadRequest)
-.AllowAnonymous();
+.Produces<ErrorResponse>(StatusCodes.Status400BadRequest);
 
-// Endpoints de Usuários (Admin)
+// ============================================
+// Users Endpoints (Admin only)
+// ============================================
 var usersGroup = app.MapGroup("/api/v1/users")
     .WithTags("Users")
     .RequireAuthorization("AdminOnly");
@@ -331,7 +303,9 @@ usersGroup.MapDelete("/{id:guid}", async (Guid id, IUserService userService, Can
 })
 .Produces(StatusCodes.Status204NoContent);
 
-// Endpoints de Produtores
+// ============================================
+// Producers Endpoints
+// ============================================
 var producersGroup = app.MapGroup("/api/v1/producers")
     .WithTags("Producers")
     .RequireAuthorization();
@@ -379,7 +353,9 @@ producersGroup.MapDelete("/{id:guid}", async (
     return Results.NoContent();
 });
 
-// Endpoints de Fazendas
+// ============================================
+// Farms Endpoints
+// ============================================
 var farmsGroup = app.MapGroup("/api/v1/farms")
     .WithTags("Farms")
     .RequireAuthorization();

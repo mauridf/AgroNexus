@@ -11,6 +11,10 @@ using Microsoft.Extensions.Logging;
 
 namespace AgroNexus.Application.Services;
 
+/// <summary>
+/// Serviço de gerenciamento de usuários.
+/// Responsável por registro, login, alteração de senha e soft delete.
+/// </summary>
 public sealed class UserService : IUserService
 {
     private readonly IUserRepository _userRepository;
