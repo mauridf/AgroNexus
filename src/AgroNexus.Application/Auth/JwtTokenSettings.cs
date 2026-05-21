@@ -1,4 +1,4 @@
-﻿namespace AgroNexus.Infrastructure.Auth;
+﻿namespace AgroNexus.Application.Auth;
 
 /// <summary>
 /// Configurações do JWT carregadas das variáveis de ambiente/secret manager.

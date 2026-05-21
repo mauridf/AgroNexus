@@ -43,14 +43,41 @@ public sealed class GlobalExceptionMiddleware
         var response = context.Response;
         response.ContentType = "application/json";
 
-        var errorResponse = new ErrorResponse
-        {
-            Message = "Ocorreu um erro interno no servidor.",
-            ErrorCode = "INTERNAL_ERROR"
-        };
+        var errorResponse = new ErrorResponse();
 
+        // Ordem IMPORTANTE: exceções mais específicas PRIMEIRO
         switch (exception)
         {
+            // 1. Validação (herda de DomainException, deve vir primeiro!)
+            case ValidationException validationEx:
+                response.StatusCode = (int)HttpStatusCode.BadRequest;
+                errorResponse.Message = validationEx.Message;
+                errorResponse.ErrorCode = validationEx.ErrorCode;
+                errorResponse.Errors = validationEx.Errors;
+
+                _logger.LogWarning("Erro de validação: {ErrorCode} - {Message}",
+                    validationEx.ErrorCode, validationEx.Message);
+                break;
+
+            // 2. Não encontrado (herda de DomainException)
+            case NotFoundException notFoundEx:
+                response.StatusCode = (int)HttpStatusCode.NotFound;
+                errorResponse.Message = notFoundEx.Message;
+                errorResponse.ErrorCode = notFoundEx.ErrorCode;
+
+                _logger.LogWarning("Recurso não encontrado: {Message}", notFoundEx.Message);
+                break;
+
+            // 3. Proibido (herda de DomainException)
+            case ForbiddenException forbiddenEx:
+                response.StatusCode = (int)HttpStatusCode.Forbidden;
+                errorResponse.Message = forbiddenEx.Message;
+                errorResponse.ErrorCode = forbiddenEx.ErrorCode;
+
+                _logger.LogWarning("Acesso negado: {Message}", forbiddenEx.Message);
+                break;
+
+            // 4. Domínio genérico (captura o resto das DomainException)
             case DomainException domainEx:
                 response.StatusCode = (int)HttpStatusCode.BadRequest;
                 errorResponse.Message = domainEx.Message;
@@ -60,43 +87,26 @@ public sealed class GlobalExceptionMiddleware
                     domainEx.ErrorCode, domainEx.Message);
                 break;
 
-            case ValidationException validationEx:
-                response.StatusCode = (int)HttpStatusCode.BadRequest;
-                errorResponse.Message = validationEx.Message;
-                errorResponse.ErrorCode = validationEx.ErrorCode;
-                errorResponse.Errors = validationEx.Errors;
-                break;
-
-            case NotFoundException notFoundEx:
-                response.StatusCode = (int)HttpStatusCode.NotFound;
-                errorResponse.Message = notFoundEx.Message;
-                errorResponse.ErrorCode = notFoundEx.ErrorCode;
-
-                _logger.LogWarning("Recurso não encontrado: {Message}", notFoundEx.Message);
-                break;
-
-            case ForbiddenException forbiddenEx:
-                response.StatusCode = (int)HttpStatusCode.Forbidden;
-                errorResponse.Message = forbiddenEx.Message;
-                errorResponse.ErrorCode = forbiddenEx.ErrorCode;
-
-                _logger.LogWarning("Acesso negado: {Message}", forbiddenEx.Message);
-                break;
-
+            // 5. Não autorizado
             case UnauthorizedAccessException:
                 response.StatusCode = (int)HttpStatusCode.Unauthorized;
                 errorResponse.Message = "Você não está autenticado.";
                 errorResponse.ErrorCode = "UNAUTHORIZED";
                 break;
 
+            // 6. Erro interno (qualquer outra exceção)
             default:
                 response.StatusCode = (int)HttpStatusCode.InternalServerError;
 
-                // Em desenvolvimento, podemos expor detalhes do erro
                 if (_environment.IsDevelopment())
                 {
                     errorResponse.Message = exception.Message;
                     errorResponse.ErrorCode = exception.GetType().Name;
+                }
+                else
+                {
+                    errorResponse.Message = "Ocorreu um erro interno no servidor.";
+                    errorResponse.ErrorCode = "INTERNAL_ERROR";
                 }
 
                 _logger.LogError(exception, "Erro interno não esperado");

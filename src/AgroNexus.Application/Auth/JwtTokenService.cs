@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
-namespace AgroNexus.Infrastructure.Auth;
+namespace AgroNexus.Application.Auth;
 
 /// <summary>
 /// Serviço responsável pela geração e validação de tokens JWT.
@@ -94,7 +94,7 @@ public sealed class JwtTokenService
                 ValidateAudience = true,
                 ValidAudience = _settings.Audience,
                 ValidateLifetime = true,
-                ClockSkew = TimeSpan.Zero // Sem tolerância de atraso
+                ClockSkew = TimeSpan.Zero
             };
 
             var principal = tokenHandler.ValidateToken(token, validationParameters, out _);

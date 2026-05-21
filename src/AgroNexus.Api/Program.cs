@@ -4,7 +4,7 @@ using AgroNexus.Application.DTOs.Responses;
 using AgroNexus.Application.Interfaces.Services;
 using AgroNexus.Application.Services;
 using AgroNexus.Domain.Interfaces.Repositories;
-using AgroNexus.Infrastructure.Auth;
+using AgroNexus.Application.Auth;
 using AgroNexus.Infrastructure.Data;
 using AgroNexus.Infrastructure.Migrations;
 using AgroNexus.Infrastructure.Repositories;

@@ -5,7 +5,7 @@ using AgroNexus.Domain.Entities.Identity;
 using AgroNexus.Domain.Enums;
 using AgroNexus.Domain.Exceptions;
 using AgroNexus.Domain.Interfaces.Repositories;
-using AgroNexus.Infrastructure.Auth;
+using AgroNexus.Application.Auth;
 using Mapster;
 using Microsoft.Extensions.Logging;
 

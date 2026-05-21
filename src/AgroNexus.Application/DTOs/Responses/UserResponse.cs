@@ -25,10 +25,12 @@ public sealed record LoginResponse
 
 /// <summary>
 /// Resposta genérica de erro.
+/// ATENÇÃO: É uma classe (não record) porque as propriedades precisam ser 
+/// modificadas no GlobalExceptionMiddleware.
 /// </summary>
-public sealed record ErrorResponse
+public sealed class ErrorResponse
 {
-    public string Message { get; init; } = null!;
-    public string? ErrorCode { get; init; }
-    public IDictionary<string, string[]>? Errors { get; init; }
+    public string Message { get; set; } = null!;
+    public string? ErrorCode { get; set; }
+    public IDictionary<string, string[]>? Errors { get; set; }
 }
