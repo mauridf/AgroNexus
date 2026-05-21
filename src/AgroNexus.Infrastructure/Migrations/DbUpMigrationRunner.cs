@@ -49,12 +49,15 @@ public sealed class DbUpMigrationRunner
         }
 
         // Configura o DbUp
+        // DESABILITA a substituição de variáveis para evitar conflitos com $2a$ do BCrypt
         var upgrader = DeployChanges.To
             .PostgresqlDatabase(_connectionString)
             .WithScriptsFromFileSystem(scriptsPath)
             .WithTransactionPerScript()
-            .LogToNowhere() // Não usamos console, nosso logger customizado cuida disso
+            .LogToNowhere()
             .LogTo(new DbUpLogger(_logger))
+            .JournalToPostgresqlTable("public", "schema_versions")
+            .WithVariablesDisabled() // ← ISTO resolve o erro!
             .Build();
 
         // Garante que o banco existe (cria se necessário)
@@ -96,12 +99,12 @@ public sealed class DbUpMigrationRunner
         if (Directory.Exists(basePath))
             return basePath;
 
-        // 2. Tenta caminho relativo a partir do diretório atual (desenvolvimento - rodando da API)
+        // 2. Tenta caminho relativo a partir do diretório atual
         var devPath1 = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "..", "scripts", "migrations");
         if (Directory.Exists(devPath1))
             return devPath1;
 
-        // 3. Procura recursivamente pela pasta scripts/migrations a partir do diretório atual
+        // 3. Procura recursivamente pela pasta scripts/migrations
         var currentDir = Directory.GetCurrentDirectory();
         while (currentDir != null)
         {
@@ -112,14 +115,12 @@ public sealed class DbUpMigrationRunner
             currentDir = Directory.GetParent(currentDir)?.FullName;
         }
 
-        // 4. Último fallback: retorna o caminho base (vai falhar com erro descritivo)
         return basePath;
     }
 }
 
 /// <summary>
 /// Adaptador para integrar o logging do DbUp com o ILogger do .NET.
-/// Implementa a interface IUpgradeLog do DbUp 5.x.
 /// </summary>
 internal sealed class DbUpLogger : IUpgradeLog
 {
@@ -130,38 +131,14 @@ internal sealed class DbUpLogger : IUpgradeLog
         _logger = logger;
     }
 
-    public void LogTrace(string format, params object[] args)
-    {
-        // Trace é muito verboso, redirecionamos para Debug
-        _logger.LogDebug(format, args);
-    }
+    public void LogTrace(string format, params object[] args) => _logger.LogTrace(format, args);
+    public void LogDebug(string format, params object[] args) => _logger.LogDebug(format, args);
+    public void LogInformation(string format, params object[] args) => _logger.LogInformation(format, args);
+    public void LogWarning(string format, params object[] args) => _logger.LogWarning(format, args);
+    public void LogError(string format, params object[] args) => _logger.LogError(format, args);
+    public void LogError(Exception ex, string format, params object[] args) => _logger.LogError(ex, format, args);
 
-    public void LogDebug(string format, params object[] args)
-    {
-        _logger.LogDebug(format, args);
-    }
-
-    public void LogInformation(string format, params object[] args)
-    {
-        _logger.LogInformation(format, args);
-    }
-
-    public void LogWarning(string format, params object[] args)
-    {
-        _logger.LogWarning(format, args);
-    }
-
-    public void LogError(string format, params object[] args)
-    {
-        _logger.LogError(format, args);
-    }
-
-    public void LogError(Exception ex, string format, params object[] args)
-    {
-        _logger.LogError(ex, format, args);
-    }
-
-    // Mantendo compatibilidade com chamadas antigas
+    // Compatibilidade com versões anteriores
     public void WriteInformation(string format, params object[] args) => LogInformation(format, args);
     public void WriteError(string format, params object[] args) => LogError(format, args);
     public void WriteWarning(string format, params object[] args) => LogWarning(format, args);

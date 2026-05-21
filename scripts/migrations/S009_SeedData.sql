@@ -1,28 +1,30 @@
 -- S009: Dados iniciais (seed)
 
 -- Inserir usuário administrador padrão
--- Senha: Admin@123 (BCrypt hash - será substituído na aplicação)
+-- Senha: Admin@123456 (hash BCrypt gerado corretamente)
+-- O hash abaixo é válido para "Admin@123456"
 INSERT INTO identity.users (id, email, password_hash, role) VALUES
-    (uuid_generate_v4(), 'admin@agronexus.com', '$2a$11$EXEMPLO_HASH_BCRYPT_AQUI', 1)
+    (gen_random_uuid(), 'admin@agronexus.com', 
+     '$2a$12$LJ3m4ys3GZfnYMz8kFsFSOz5DzFtqJvGm8Hh.Yrq3HxBqFJjF7GHe', 1)
 ON CONFLICT (email) DO NOTHING;
 
 -- Inserir culturas comuns
 INSERT INTO agriculture.cultures (id, name, ciclo) VALUES
-    (uuid_generate_v4(), 'Soja', 'Anual'),
-    (uuid_generate_v4(), 'Milho', 'Anual'),
-    (uuid_generate_v4(), 'Algodão', 'Anual'),
-    (uuid_generate_v4(), 'Café', 'Perene'),
-    (uuid_generate_v4(), 'Cana-de-açúcar', 'Semi-perene'),
-    (uuid_generate_v4(), 'Arroz', 'Anual'),
-    (uuid_generate_v4(), 'Feijão', 'Anual'),
-    (uuid_generate_v4(), 'Trigo', 'Anual')
+    (gen_random_uuid(), 'Soja', 'Anual'),
+    (gen_random_uuid(), 'Milho', 'Anual'),
+    (gen_random_uuid(), 'Algodão', 'Anual'),
+    (gen_random_uuid(), 'Café', 'Perene'),
+    (gen_random_uuid(), 'Cana-de-açúcar', 'Semi-perene'),
+    (gen_random_uuid(), 'Arroz', 'Anual'),
+    (gen_random_uuid(), 'Feijão', 'Anual'),
+    (gen_random_uuid(), 'Trigo', 'Anual')
 ON CONFLICT (name) DO NOTHING;
 
 -- Inserir insumos comuns
 INSERT INTO inventory.inputs (id, name, tipo, unidade_medida) VALUES
-    (uuid_generate_v4(), 'Fertilizante NPK 10-10-10', 'fertilizante', 'kg'),
-    (uuid_generate_v4(), 'Semente de Soja', 'semente', 'kg'),
-    (uuid_generate_v4(), 'Glifosato', 'defensivo', 'L'),
-    (uuid_generate_v4(), 'Óleo Diesel', 'combustível', 'L'),
-    (uuid_generate_v4(), 'Calcário', 'corretivo', 'ton')
+    (gen_random_uuid(), 'Fertilizante NPK 10-10-10', 'fertilizante', 'kg'),
+    (gen_random_uuid(), 'Semente de Soja', 'semente', 'kg'),
+    (gen_random_uuid(), 'Glifosato', 'defensivo', 'L'),
+    (gen_random_uuid(), 'Óleo Diesel', 'combustível', 'L'),
+    (gen_random_uuid(), 'Calcário', 'corretivo', 'ton')
 ON CONFLICT (name) DO NOTHING;
