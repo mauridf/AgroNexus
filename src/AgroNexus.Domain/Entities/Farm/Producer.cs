@@ -1,4 +1,5 @@
 ﻿using AgroNexus.Domain.Exceptions;
+using AgroNexus.Domain.ValueObjects;
 
 namespace AgroNexus.Domain.Entities.Farm;
 
@@ -21,7 +22,7 @@ public sealed class Producer : BaseEntity
     /// <summary>
     /// CPF (11 dígitos) ou CNPJ (14 dígitos) do produtor.
     /// </summary>
-    public string CpfCnpj { get; private set; } = null!;
+    public CpfCnpj CpfCnpj { get; private set; } = null!;
 
     /// <summary>
     /// RG do produtor (opcional para PJ).
@@ -93,20 +94,11 @@ public sealed class Producer : BaseEntity
         if (string.IsNullOrWhiteSpace(name))
             throw new DomainException("Nome é obrigatório.", "PRODUCER_NAME_REQUIRED");
 
-        if (string.IsNullOrWhiteSpace(cpfCnpj))
-            throw new DomainException("CPF/CNPJ é obrigatório.", "PRODUCER_CPFCNPJ_REQUIRED");
-
-        // Remove máscara para armazenar apenas números
-        var cpfCnpjLimpo = new string(cpfCnpj.Where(char.IsDigit).ToArray());
-
-        if (cpfCnpjLimpo.Length != 11 && cpfCnpjLimpo.Length != 14)
-            throw new DomainException("CPF/CNPJ deve ter 11 ou 14 dígitos.", "PRODUCER_CPFCNPJ_INVALID");
-
         var producer = new Producer
         {
             UserId = userId,
             Name = name.Trim(),
-            CpfCnpj = cpfCnpjLimpo,
+            CpfCnpj = CpfCnpj.Create(cpfCnpj),
             Rg = rg?.Trim(),
             InscricaoEstadual = inscricaoEstadual?.Trim(),
             DataNascimento = dataNascimento,
@@ -124,12 +116,12 @@ public sealed class Producer : BaseEntity
     /// <summary>
     /// Verifica se o CPF/CNPj é de Pessoa Física (11 dígitos).
     /// </summary>
-    public bool IsPessoaFisica() => CpfCnpj.Length == 11;
+    public bool IsPessoaFisica() => CpfCnpj.IsCpf;
 
     /// <summary>
     /// Verifica se o CPF/CNPj é de Pessoa Jurídica (14 dígitos).
     /// </summary>
-    public bool IsPessoaJuridica() => CpfCnpj.Length == 14;
+    public bool IsPessoaJuridica() => CpfCnpj.IsCnpj;
 
     /// <summary>
     /// Atualiza os dados cadastrais do produtor.

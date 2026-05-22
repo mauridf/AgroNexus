@@ -1,5 +1,6 @@
 ﻿using AgroNexus.Domain.Enums;
 using AgroNexus.Domain.Exceptions;
+using AgroNexus.Domain.ValueObjects;
 
 namespace AgroNexus.Domain.Entities.Identity;
 
@@ -12,7 +13,7 @@ public sealed class User : BaseEntity
     /// <summary>
     /// Email do usuário (usado como login).
     /// </summary>
-    public string Email { get; private set; } = null!;
+    public Email Email { get; private set; } = null!;
 
     /// <summary>
     /// Hash da senha (nunca armazenamos senha em texto puro).
@@ -44,12 +45,6 @@ public sealed class User : BaseEntity
     public static User Create(string email, string passwordHash, UserRole role)
     {
         // Validações de domínio
-        if (string.IsNullOrWhiteSpace(email))
-            throw new DomainException("Email é obrigatório.", "USER_EMAIL_REQUIRED");
-
-        if (!email.Contains('@') || !email.Contains('.'))
-            throw new DomainException("Email inválido.", "USER_EMAIL_INVALID");
-
         if (string.IsNullOrWhiteSpace(passwordHash))
             throw new DomainException("Senha é obrigatória.", "USER_PASSWORD_REQUIRED");
 
@@ -58,7 +53,7 @@ public sealed class User : BaseEntity
 
         var user = new User
         {
-            Email = email.ToLowerInvariant().Trim(),
+            Email = Email.Create(email),
             PasswordHash = passwordHash,
             Role = role
         };

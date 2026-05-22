@@ -1,4 +1,5 @@
 ﻿using AgroNexus.Domain.Exceptions;
+using AgroNexus.Domain.ValueObjects;
 
 namespace AgroNexus.Domain.Entities.Farm;
 
@@ -33,35 +34,12 @@ public sealed class Farm : BaseEntity
     /// </summary>
     public string? Estado { get; private set; }
 
-    /// <summary>
-    /// Latitude da localização da fazenda.
-    /// </summary>
-    public decimal? Latitude { get; private set; }
+    public Coordinate? Location { get; private set; }
+    public Area TotalArea { get; private set; } = null!;
+    public Area AgriculturalArea { get; private set; } = null!;
+    public Area VegetationArea { get; private set; } = null!;
+    public Area BuiltArea { get; private set; } = null!;
 
-    /// <summary>
-    /// Longitude da localização da fazenda.
-    /// </summary>
-    public decimal? Longitude { get; private set; }
-
-    /// <summary>
-    /// Área total da fazenda em hectares.
-    /// </summary>
-    public decimal TotalAreaHa { get; private set; }
-
-    /// <summary>
-    /// Área agricultável em hectares.
-    /// </summary>
-    public decimal AgriculturalAreaHa { get; private set; }
-
-    /// <summary>
-    /// Área de vegetação nativa em hectares.
-    /// </summary>
-    public decimal VegetationAreaHa { get; private set; }
-
-    /// <summary>
-    /// Área construída (benfeitorias) em hectares.
-    /// </summary>
-    public decimal BuiltAreaHa { get; private set; }
 
     /// <summary>
     /// Inscrição Estadual da propriedade.
@@ -82,6 +60,32 @@ public sealed class Farm : BaseEntity
     /// Fonte de água disponível na propriedade.
     /// </summary>
     public string? FonteAgua { get; private set; }
+
+    // Propriedades de compatibilidade para o EF Core
+    /// <summary>
+    /// Área total da fazenda em hectares.
+    /// </summary>
+    public decimal TotalAreaHa => TotalArea.Hectares;
+    /// <summary>
+    /// Área agricultável em hectares.
+    /// </summary>
+    public decimal AgriculturalAreaHa => AgriculturalArea.Hectares;
+    /// <summary>
+    /// Área de vegetação nativa em hectares.
+    /// </summary>
+    public decimal VegetationAreaHa => VegetationArea.Hectares;
+    /// <summary>
+    /// Área construída (benfeitorias) em hectares.
+    /// </summary>
+    public decimal BuiltAreaHa => BuiltArea.Hectares;
+    /// <summary>
+    /// Latitude da localização da fazenda.
+    /// </summary>
+    public decimal? Latitude => Location?.Latitude;
+    /// <summary>
+    /// Longitude da localização da fazenda.
+    /// </summary>
+    public decimal? Longitude => Location?.Longitude;
 
     // Navegação
     // public Producer Producer { get; private set; } = null!;
@@ -112,39 +116,30 @@ public sealed class Farm : BaseEntity
         if (string.IsNullOrWhiteSpace(name))
             throw new DomainException("Nome da fazenda é obrigatório.", "FARM_NAME_REQUIRED");
 
-        if (totalAreaHa <= 0)
-            throw new DomainException("Área total deve ser maior que zero.", "FARM_TOTAL_AREA_INVALID");
+        var total = Area.FromHectares(totalAreaHa);
+        var agricultural = Area.FromHectares(agriculturalAreaHa);
+        var vegetation = Area.FromHectares(vegetationAreaHa);
+        var built = Area.FromHectares(builtAreaHa);
 
-        if (agriculturalAreaHa < 0)
-            throw new DomainException("Área agricultável não pode ser negativa.", "FARM_AGRI_AREA_INVALID");
+        // Valida soma das áreas usando ValueObject
+        Area.ValidateSum(total, agricultural, vegetation, built);
 
-        if (vegetationAreaHa < 0)
-            throw new DomainException("Área de vegetação não pode ser negativa.", "FARM_VEG_AREA_INVALID");
-
-        if (builtAreaHa < 0)
-            throw new DomainException("Área construída não pode ser negativa.", "FARM_BUILT_AREA_INVALID");
-
-        // REGRA DE NEGÓCIO CRÍTICA
-        var somaAreas = agriculturalAreaHa + vegetationAreaHa + builtAreaHa;
-        if (somaAreas > totalAreaHa)
-            throw new DomainException(
-                $"A soma das áreas ({somaAreas:F2}ha) não pode exceder a área total ({totalAreaHa:F2}ha). " +
-                $"Diferença excedente: {somaAreas - totalAreaHa:F2}ha.",
-                "FARM_AREA_EXCEEDS_TOTAL");
+        Coordinate? coord = null;
+        if (latitude.HasValue && longitude.HasValue)
+            coord = Coordinate.Create(latitude.Value, longitude.Value);
 
         var farm = new Farm
         {
             ProducerId = producerId,
             Name = name.Trim(),
-            TotalAreaHa = totalAreaHa,
-            AgriculturalAreaHa = agriculturalAreaHa,
-            VegetationAreaHa = vegetationAreaHa,
-            BuiltAreaHa = builtAreaHa,
+            TotalArea = total,
+            AgriculturalArea = agricultural,
+            VegetationArea = vegetation,
+            BuiltArea = built,
             Endereco = endereco?.Trim(),
             Cidade = cidade?.Trim(),
             Estado = estado?.Trim().ToUpperInvariant(),
-            Latitude = latitude,
-            Longitude = longitude,
+            Location = coord,
             InscricaoEstadual = inscricaoEstadual?.Trim(),
             CodigoCar = codigoCar?.Trim(),
             Ccir = ccir?.Trim(),
@@ -187,26 +182,28 @@ public sealed class Farm : BaseEntity
         if (string.IsNullOrWhiteSpace(name))
             throw new DomainException("Nome da fazenda é obrigatório.", "FARM_NAME_REQUIRED");
 
-        var somaAreas = agriculturalAreaHa + vegetationAreaHa + builtAreaHa;
-        if (somaAreas > totalAreaHa)
-            throw new DomainException(
-                $"A soma das áreas ({somaAreas:F2}ha) não pode exceder a área total ({totalAreaHa:F2}ha).",
-                "FARM_AREA_EXCEEDS_TOTAL");
+        var total = Area.FromHectares(totalAreaHa);
+        var agricultural = Area.FromHectares(agriculturalAreaHa);
+        var vegetation = Area.FromHectares(vegetationAreaHa);
+        var built = Area.FromHectares(builtAreaHa);
+
+        Area.ValidateSum(total, agricultural, vegetation, built);
 
         Name = name.Trim();
-        TotalAreaHa = totalAreaHa;
-        AgriculturalAreaHa = agriculturalAreaHa;
-        VegetationAreaHa = vegetationAreaHa;
-        BuiltAreaHa = builtAreaHa;
+        TotalArea = total;
+        AgriculturalArea = agricultural;
+        VegetationArea = vegetation;
+        BuiltArea = built;
         Endereco = endereco?.Trim();
         Cidade = cidade?.Trim();
         Estado = estado?.Trim().ToUpperInvariant();
-        Latitude = latitude;
-        Longitude = longitude;
         InscricaoEstadual = inscricaoEstadual?.Trim();
         CodigoCar = codigoCar?.Trim();
         Ccir = ccir?.Trim();
         FonteAgua = fonteAgua?.Trim();
+
+        if (latitude.HasValue && longitude.HasValue)
+            Location = Coordinate.Create(latitude.Value, longitude.Value);
 
         MarkAsUpdated();
     }

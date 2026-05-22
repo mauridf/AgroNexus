@@ -138,8 +138,7 @@ public sealed class FarmManagementService : IFarmManagementService
 
         await _farmRepository.AddAsync(farm, cancellationToken);
 
-        _logger.LogInformation("Fazenda criada: {FarmId}, Área total: {TotalArea}ha",
-            farm.Id, farm.TotalAreaHa);
+        _logger.LogInformation("Fazenda criada: {FarmId}, Área total: {TotalArea}ha", farm.Id, farm.TotalArea.Hectares);
 
         return farm.Adapt<FarmResponse>();
     }

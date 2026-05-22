@@ -28,13 +28,16 @@ public static class MappingConfig
 
         // Producer → ProducerResponse
         TypeAdapterConfig<Producer, ProducerResponse>.NewConfig()
-            .Map(dest => dest.CpfCnpj, src =>
-                src.CpfCnpj.Length == 11
-                    ? Convert.ToUInt64(src.CpfCnpj).ToString(@"000\.000\.000\-00")
-                    : Convert.ToUInt64(src.CpfCnpj).ToString(@"00\.000\.000\/0000\-00"));
+            .Map(dest => dest.CpfCnpj, src => src.CpfCnpj.Formatted);
 
         // Farm → FarmResponse
-        TypeAdapterConfig<Farm, FarmResponse>.NewConfig();
+        TypeAdapterConfig<Farm, FarmResponse>.NewConfig()
+            .Map(dest => dest.TotalAreaHa, src => src.TotalArea.Hectares)
+            .Map(dest => dest.AgriculturalAreaHa, src => src.AgriculturalArea.Hectares)
+            .Map(dest => dest.VegetationAreaHa, src => src.VegetationArea.Hectares)
+            .Map(dest => dest.BuiltAreaHa, src => src.BuiltArea.Hectares)
+            .Map(dest => dest.Latitude, src => src.Location != null ? src.Location.Latitude : (decimal?)null)
+            .Map(dest => dest.Longitude, src => src.Location != null ? src.Location.Longitude : (decimal?)null);
 
         // Culture → CultureResponse
         TypeAdapterConfig<Culture, CultureResponse>.NewConfig();

@@ -6,6 +6,7 @@ using AgroNexus.Domain.Entities.Identity;
 using AgroNexus.Domain.Entities.Inventory;
 using AgroNexus.Domain.Entities.Monitoring;
 using AgroNexus.Domain.Entities.Operations;
+using AgroNexus.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 
@@ -65,7 +66,13 @@ public sealed class AgroNexusDbContext : DbContext
         {
             entity.ToTable("users", "identity");
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.Email).HasMaxLength(255).IsRequired();
+
+            // Email é ValueObject - mapeia a propriedade interna Value
+            entity.Property(e => e.Email)
+                .HasConversion(e => e.Value, v => Email.Create(v))
+                .HasMaxLength(255)
+                .IsRequired();
+
             entity.Property(e => e.PasswordHash).HasMaxLength(255).IsRequired();
             entity.Property(e => e.Role).IsRequired();
             entity.Property(e => e.CreatedAt).IsRequired();
@@ -80,7 +87,13 @@ public sealed class AgroNexusDbContext : DbContext
             entity.ToTable("producers", "farm");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
-            entity.Property(e => e.CpfCnpj).HasMaxLength(14).IsRequired();
+
+            // CpfCnpj é ValueObject
+            entity.Property(e => e.CpfCnpj)
+                .HasConversion(c => c.Value, v => CpfCnpj.Create(v))
+                .HasMaxLength(14)
+                .IsRequired();
+
             entity.Property(e => e.Estado).HasMaxLength(2);
             entity.Property(e => e.CreatedAt).IsRequired();
             entity.Property(e => e.IsActive).IsRequired();
@@ -93,12 +106,39 @@ public sealed class AgroNexusDbContext : DbContext
             entity.ToTable("farms", "farm");
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
-            entity.Property(e => e.TotalAreaHa).HasPrecision(12, 4).IsRequired();
-            entity.Property(e => e.AgriculturalAreaHa).HasPrecision(12, 4).IsRequired();
-            entity.Property(e => e.VegetationAreaHa).HasPrecision(12, 4).IsRequired();
-            entity.Property(e => e.BuiltAreaHa).HasPrecision(12, 4).IsRequired();
-            entity.Property(e => e.Latitude).HasPrecision(9, 6);
-            entity.Property(e => e.Longitude).HasPrecision(9, 6);
+
+            // Areas são ValueObjects
+            entity.Property(e => e.TotalArea)
+                .HasConversion(a => a.Hectares, h => Area.FromHectares(h))
+                .HasPrecision(12, 4).IsRequired();
+
+            entity.Property(e => e.AgriculturalArea)
+                .HasConversion(a => a.Hectares, h => Area.FromHectares(h))
+                .HasPrecision(12, 4).IsRequired();
+
+            entity.Property(e => e.VegetationArea)
+                .HasConversion(a => a.Hectares, h => Area.FromHectares(h))
+                .HasPrecision(12, 4).IsRequired();
+
+            entity.Property(e => e.BuiltArea)
+                .HasConversion(a => a.Hectares, h => Area.FromHectares(h))
+                .HasPrecision(12, 4).IsRequired();
+
+            // Coordinate é ValueObject (opcional)
+            entity.OwnsOne(e => e.Location, loc =>
+            {
+                loc.Property(c => c.Latitude).HasColumnName("latitude").HasPrecision(9, 6);
+                loc.Property(c => c.Longitude).HasColumnName("longitude").HasPrecision(9, 6);
+            });
+
+            // Propriedades de compatibilidade (não mapeadas)
+            entity.Ignore(e => e.TotalAreaHa);
+            entity.Ignore(e => e.AgriculturalAreaHa);
+            entity.Ignore(e => e.VegetationAreaHa);
+            entity.Ignore(e => e.BuiltAreaHa);
+            entity.Ignore(e => e.Latitude);
+            entity.Ignore(e => e.Longitude);
+
             entity.Property(e => e.Estado).HasMaxLength(2);
             entity.Property(e => e.CreatedAt).IsRequired();
             entity.Property(e => e.IsActive).IsRequired();
