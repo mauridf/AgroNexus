@@ -1,5 +1,6 @@
 ﻿using AgroNexus.Domain.Entities.Farm;
 using AgroNexus.Domain.Interfaces.Repositories;
+using AgroNexus.Domain.ValueObjects;
 using AgroNexus.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,9 +14,9 @@ public sealed class ProducerRepository : Repository<Producer>, IProducerReposito
 
     public async Task<Producer?> GetByCpfCnpjAsync(string cpfCnpj, CancellationToken cancellationToken = default)
     {
-        var cpfCnpjLimpo = new string(cpfCnpj.Where(char.IsDigit).ToArray());
+        var cpfCnpjVO = CpfCnpj.Create(cpfCnpj);
         return await DbSet
-            .FirstOrDefaultAsync(p => p.CpfCnpj == cpfCnpjLimpo, cancellationToken);
+            .FirstOrDefaultAsync(p => p.CpfCnpj == cpfCnpjVO, cancellationToken);
     }
 
     public async Task<Producer?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -26,8 +27,8 @@ public sealed class ProducerRepository : Repository<Producer>, IProducerReposito
 
     public async Task<bool> CpfCnpjExistsAsync(string cpfCnpj, CancellationToken cancellationToken = default)
     {
-        var cpfCnpjLimpo = new string(cpfCnpj.Where(char.IsDigit).ToArray());
+        var cpfCnpjVO = CpfCnpj.Create(cpfCnpj);
         return await DbSet
-            .AnyAsync(p => p.CpfCnpj == cpfCnpjLimpo, cancellationToken);
+            .AnyAsync(p => p.CpfCnpj == cpfCnpjVO, cancellationToken);
     }
 }
