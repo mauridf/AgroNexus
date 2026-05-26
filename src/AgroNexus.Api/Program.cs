@@ -178,6 +178,7 @@ builder.Services.AddScoped<IInventoryService, InventoryService>();
 builder.Services.AddScoped<IOperationsService, OperationsService>();
 builder.Services.AddScoped<IMonitoringService, MonitoringService>();
 builder.Services.AddScoped<IFinancialService, FinancialService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 // ============================================
 // 7.5 MAPEAMENTOS E VALIDADORES
@@ -282,6 +283,7 @@ app.MapInventoryEndpoints(); // CRUD de Insumos e Estoques
 app.MapOperationsEndpoints(); // CRUD de Contratos e Custos Operacionais
 app.MapMonitoringEndpoints(); // CRUD de Alertas, Certificados e Clima
 app.MapFinancialEndpoints(); // CRUD de Vendas e Relatórios Financeiros
+app.MapDashboardEndpoints(); // Endpoints de Dashboard e Indicadores
 
 // ============================================
 // 13. START 🚀
